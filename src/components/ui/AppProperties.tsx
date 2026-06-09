@@ -64,6 +64,7 @@ export enum Invokes {
   GetFolderChildren = 'get_folder_children',
   GetLogFilePath = 'get_log_file_path',
   GetOrCreateInternalLibraryRoot = 'get_or_create_internal_library_root',
+  GetOverlayAsset = 'get_overlay_asset',
   GetPinnedFolderTrees = 'get_pinned_folder_trees',
   GetSupportedFileTypes = 'get_supported_file_types',
   HandleExportPresetsToFile = 'handle_export_presets_to_file',
@@ -74,6 +75,7 @@ export enum Invokes {
   InvokeGenerativeReplaseWithMaskDef = 'invoke_generative_replace_with_mask_def',
   ListImagesInDir = 'list_images_in_dir',
   ListImagesRecursive = 'list_images_recursive',
+  ListOverlayAssets = 'list_overlay_assets',
   LoadImage = 'load_image',
   LoadMetadata = 'load_metadata',
   LoadPresets = 'load_presets',
@@ -86,6 +88,7 @@ export enum Invokes {
   ResetAdjustmentsForPaths = 'reset_adjustments_for_paths',
   SaveMetadataAndUpdateThumbnail = 'save_metadata_and_update_thumbnail',
   SaveCollage = 'save_collage',
+  SaveImageTrack = 'save_image_track',
   SaveDenoisedImage = 'save_denoised_image',
   SavePanorama = 'save_panorama',
   SaveHdr = 'save_hdr',
@@ -123,6 +126,7 @@ export enum Panel {
   Export = 'export',
   Masks = 'masks',
   Metadata = 'metadata',
+  Overlays = 'overlays',
   Presets = 'presets',
 }
 

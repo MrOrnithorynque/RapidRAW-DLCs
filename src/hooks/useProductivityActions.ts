@@ -149,6 +149,20 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
     [refreshImageList],
   );
 
+  const handleSaveImageTrack = useCallback(
+    async (base64Data: string, firstPath: string): Promise<string> => {
+      try {
+        const savedPath: string = await invoke(Invokes.SaveImageTrack, { base64Data, firstPathStr: firstPath });
+        await refreshImageList();
+        return savedPath;
+      } catch (err) {
+        console.error('Failed to save tracked image:', err);
+        throw err;
+      }
+    },
+    [refreshImageList],
+  );
+
   return {
     handleStartPanorama,
     handleSavePanorama,
@@ -158,5 +172,6 @@ export function useProductivityActions(refreshImageList: () => Promise<void>) {
     handleBatchDenoise,
     handleSaveDenoisedImage,
     handleSaveCollage,
+    handleSaveImageTrack,
   };
 }

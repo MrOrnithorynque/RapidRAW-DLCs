@@ -7,7 +7,7 @@ It is a **Tauri v2** application:
 - **Rust backend** — `src-tauri/src/` (~26k LOC, 34 `.rs` files + 4 WGSL shaders). All image decoding, the GPU image pipeline, AI, file/library management, and export live here.
 - **React 19 + TypeScript + Zustand frontend** — `src/` (~45k LOC). All UI, the editor canvas, panels, and state.
 
-The two halves talk over Tauri IPC: **97 `#[tauri::command]`s** plus a stream of backend → frontend **events**.
+The two halves talk over Tauri IPC: **98 `#[tauri::command]`s** plus a stream of backend → frontend **events**.
 
 ## Build & run
 

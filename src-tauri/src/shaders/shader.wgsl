@@ -111,6 +111,36 @@ struct GlobalAdjustments {
     halation_amount: f32,
     flare_amount: f32,
     sharpness_threshold: f32,
+
+    halftone_amount: f32,
+    halftone_scale: f32,
+    halftone_angle: f32,
+    halftone_shape: f32,
+
+    scanline_amount: f32,
+    scanline_count: f32,
+    scanline_noise: f32,
+    effect_mono: f32,
+
+    posterize_amount: f32,
+    posterize_levels: f32,
+    hue_rotate: f32,
+    glitch_amount: f32,
+
+    glitch_rgb_split: f32,
+    glitch_blocks: f32,
+    glitch_noise: f32,
+    glass_amount: f32,
+
+    glass_scale: f32,
+    glass_strength: f32,
+    pixelate_amount: f32,
+    wave_amount: f32,
+
+    wave_frequency: f32,
+    edge_amount: f32,
+    thermal_amount: f32,
+    xray_amount: f32,
 }
 
 struct MaskAdjustments {
@@ -1410,6 +1440,185 @@ fn apply_halation(
     return contrast_reduced + halation_glow * amount * 2.5;
 }
 
+fn fx_rgb_to_hsv(c: vec3<f32>) -> vec3<f32> {
+    let K = vec4<f32>(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+    let p = mix(vec4<f32>(c.bg, K.wz), vec4<f32>(c.gb, K.xy), step(c.b, c.g));
+    let q = mix(vec4<f32>(p.xyw, c.r), vec4<f32>(c.r, p.yzx), step(p.x, c.r));
+    let d = q.x - min(q.w, q.y);
+    let e = 1.0e-10;
+    return vec3<f32>(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+}
+
+fn fx_hsv_to_rgb(c: vec3<f32>) -> vec3<f32> {
+    let K = vec4<f32>(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+    let p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+    return c.z * mix(K.xxx, clamp(p - K.xxx, vec3<f32>(0.0), vec3<f32>(1.0)), c.y);
+}
+
+fn fx_hash21(p: vec2<f32>) -> f32 {
+    return fract(sin(dot(p, vec2<f32>(12.9898, 78.233))) * 43758.5453);
+}
+
+fn fx_hash11(p: f32) -> f32 {
+    return fract(sin(p * 127.1) * 43758.5453);
+}
+
+fn fx_luma(c: vec3<f32>) -> f32 {
+    return dot(c, vec3<f32>(0.299, 0.587, 0.114));
+}
+
+// Computes a displaced source-read coordinate for the Glass refraction and
+// Glitch block-displacement effects. Works on the full input texture so it is
+// continuous across processing tiles. Returns the source pixel position.
+fn fx_displace_source(coord: vec2<f32>, dims: vec2<f32>) -> vec2<f32> {
+    let g = adjustments.global;
+    var p = coord;
+
+    if (g.glass_amount > 0.0) {
+        let uv = coord / max(dims, vec2<f32>(1.0));
+        let freq = max(1.0, g.glass_scale);
+        let dx = sin(uv.y * freq * 6.2831853 + uv.x * 3.0) + 0.5 * sin(uv.y * freq * 13.0);
+        let dy = cos(uv.x * freq * 6.2831853 + uv.y * 3.0) + 0.5 * cos(uv.x * freq * 11.0);
+        let mag = g.glass_amount * g.glass_strength * 0.02 * min(dims.x, dims.y);
+        p += vec2<f32>(dx, dy) * mag;
+    }
+
+    if (g.glitch_amount > 0.0 && g.glitch_blocks > 0.0) {
+        let band = floor(coord.y / max(2.0, dims.y * 0.03));
+        let r = fx_hash11(band);
+        if (r > 1.0 - g.glitch_blocks * 0.5) {
+            let shift = (fx_hash11(band + 13.7) - 0.5) * g.glitch_amount * dims.x * 0.15;
+            p.x += shift;
+        }
+    }
+
+    if (g.wave_amount > 0.0) {
+        let freq = max(1.0, g.wave_frequency);
+        let mag = g.wave_amount * 0.02 * min(dims.x, dims.y);
+        p.x += sin(coord.y / max(dims.y, 1.0) * freq * 6.2831853) * mag;
+        p.y += cos(coord.x / max(dims.x, 1.0) * freq * 6.2831853) * mag * 0.5;
+    }
+
+    if (g.pixelate_amount > 0.0) {
+        let ref_scale = max(0.1, min(dims.x, dims.y) / 1080.0);
+        let block = mix(1.0, max(2.0, 64.0 * ref_scale), clamp(g.pixelate_amount, 0.0, 1.0));
+        if (block > 1.5) {
+            p = (floor(p / block) + 0.5) * block;
+        }
+    }
+
+    return p;
+}
+
+// Per-pixel creative style effects applied on the final sRGB color (0..1).
+// `coord` is the absolute (full-image) pixel coordinate so patterns stay
+// continuous across processing tiles. `ref_scale` scales pattern feature size
+// with image resolution. `img_dims` is the full image size in pixels.
+fn apply_creative_effects(in_rgb: vec3<f32>, coord: vec2<f32>, ref_scale: f32, img_dims: vec2<f32>) -> vec3<f32> {
+    var rgb = clamp(in_rgb, vec3<f32>(0.0), vec3<f32>(1.0));
+    let g = adjustments.global;
+
+    if (abs(g.hue_rotate) > 0.0001) {
+        var hsv = fx_rgb_to_hsv(rgb);
+        hsv.x = fract(hsv.x + g.hue_rotate / 360.0);
+        rgb = fx_hsv_to_rgb(hsv);
+    }
+
+    if (g.effect_mono > 0.0) {
+        let l = fx_luma(rgb);
+        rgb = mix(rgb, vec3<f32>(l), clamp(g.effect_mono, 0.0, 1.0));
+    }
+
+    if (g.posterize_amount > 0.0) {
+        let levels = max(2.0, floor(g.posterize_levels));
+        var bayer = array<f32, 16>(
+            0.0, 8.0, 2.0, 10.0,
+            12.0, 4.0, 14.0, 6.0,
+            3.0, 11.0, 1.0, 9.0,
+            15.0, 7.0, 13.0, 5.0
+        );
+        let bx = u32(coord.x) % 4u;
+        let by = u32(coord.y) % 4u;
+        let threshold = (bayer[by * 4u + bx] + 0.5) / 16.0 - 0.5;
+        let dithered = clamp(rgb + threshold / (levels - 1.0), vec3<f32>(0.0), vec3<f32>(1.0));
+        let quantized = floor(dithered * (levels - 1.0) + 0.5) / (levels - 1.0);
+        rgb = mix(rgb, quantized, clamp(g.posterize_amount, 0.0, 1.0));
+    }
+
+    if (g.halftone_amount > 0.0) {
+        let cell = max(2.0, g.halftone_scale * ref_scale);
+        let ang = g.halftone_angle * 0.017453292;
+        let ca = cos(ang);
+        let sa = sin(ang);
+        let rot = mat2x2<f32>(ca, sa, -sa, ca);
+        let p = rot * coord;
+        let cell_pos = p / cell;
+        let local = (cell_pos - floor(cell_pos)) - 0.5;
+        let tone = 1.0 - clamp(fx_luma(rgb), 0.0, 1.0);
+        let shape = i32(g.halftone_shape + 0.5);
+        var dist = length(local) * 2.0;
+        if (shape == 1) {
+            dist = abs(local.y) * 2.0;
+        } else if (shape == 2) {
+            dist = min(abs(local.x), abs(local.y)) * 2.0;
+        }
+        let radius = sqrt(tone);
+        let edge = 0.12;
+        let ink = 1.0 - smoothstep(radius - edge, radius + edge, dist);
+        let halftone_rgb = mix(vec3<f32>(1.0), vec3<f32>(0.0), ink);
+        rgb = mix(rgb, halftone_rgb, clamp(g.halftone_amount, 0.0, 1.0));
+    }
+
+    if (g.scanline_amount > 0.0) {
+        let count = max(1.0, g.scanline_count);
+        let phase = (coord.y / max(img_dims.y, 1.0)) * count * 6.2831853;
+        let s = 0.5 + 0.5 * sin(phase);
+        let line_factor = mix(1.0, s, clamp(g.scanline_amount, 0.0, 1.0));
+        rgb *= line_factor;
+        if (g.scanline_noise > 0.0) {
+            let n = fx_hash21(coord + vec2<f32>(0.37, 1.91)) - 0.5;
+            rgb = clamp(rgb + vec3<f32>(n) * g.scanline_noise * 0.35, vec3<f32>(0.0), vec3<f32>(1.0));
+        }
+    }
+
+    if (g.glitch_amount > 0.0 && g.glitch_noise > 0.0) {
+        let n = fx_hash21(coord * 0.5 + vec2<f32>(2.3, 7.1)) - 0.5;
+        rgb = clamp(rgb + vec3<f32>(n) * g.glitch_amount * g.glitch_noise * 0.4, vec3<f32>(0.0), vec3<f32>(1.0));
+    }
+
+    if (g.edge_amount > 0.0) {
+        let dims_i = vec2<i32>(textureDimensions(input_texture));
+        let c = vec2<i32>(coord);
+        let l = clamp(c - vec2<i32>(1, 0), vec2<i32>(0), dims_i - 1);
+        let r = clamp(c + vec2<i32>(1, 0), vec2<i32>(0), dims_i - 1);
+        let u = clamp(c - vec2<i32>(0, 1), vec2<i32>(0), dims_i - 1);
+        let d = clamp(c + vec2<i32>(0, 1), vec2<i32>(0), dims_i - 1);
+        let gx = fx_luma(textureLoad(input_texture, vec2<u32>(r), 0).rgb) - fx_luma(textureLoad(input_texture, vec2<u32>(l), 0).rgb);
+        let gy = fx_luma(textureLoad(input_texture, vec2<u32>(d), 0).rgb) - fx_luma(textureLoad(input_texture, vec2<u32>(u), 0).rgb);
+        let edge = clamp(sqrt(gx * gx + gy * gy) * 4.0, 0.0, 1.0);
+        rgb = mix(rgb, vec3<f32>(edge), clamp(g.edge_amount, 0.0, 1.0));
+    }
+
+    if (g.thermal_amount > 0.0) {
+        let l = clamp(fx_luma(rgb), 0.0, 1.0);
+        let thermal = clamp(vec3<f32>(
+            smoothstep(0.3, 0.9, l),
+            smoothstep(0.1, 0.5, l) - smoothstep(0.7, 1.0, l) * 0.5,
+            1.0 - smoothstep(0.2, 0.7, l)
+        ), vec3<f32>(0.0), vec3<f32>(1.0));
+        rgb = mix(rgb, thermal, clamp(g.thermal_amount, 0.0, 1.0));
+    }
+
+    if (g.xray_amount > 0.0) {
+        let inv = 1.0 - rgb;
+        let l = fx_luma(inv);
+        let xray = vec3<f32>(l * 0.7, l * 0.95, l);
+        rgb = mix(rgb, xray, clamp(g.xray_amount, 0.0, 1.0));
+    }
+
+    return rgb;
+}
+
 @compute @workgroup_size(8, 8, 1)
 fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let out_dims = vec2<u32>(textureDimensions(output_texture));
@@ -1423,13 +1632,33 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let absolute_coord = id.xy + vec2<u32>(adjustments.tile_offset_x, adjustments.tile_offset_y);
     let absolute_coord_i = vec2<i32>(absolute_coord);
 
+    // Glass refraction + Glitch block displacement: pick the source pixel to read.
+    let max_src = vec2<i32>(full_dims - 1.0);
+    var src_i = absolute_coord_i;
+    if (adjustments.global.glass_amount > 0.0 || adjustments.global.wave_amount > 0.0 || adjustments.global.pixelate_amount > 0.0 || (adjustments.global.glitch_amount > 0.0 && adjustments.global.glitch_blocks > 0.0)) {
+        let displaced = fx_displace_source(vec2<f32>(absolute_coord), full_dims);
+        src_i = clamp(vec2<i32>(round(displaced)), vec2<i32>(0), max_src);
+    }
+    let src_u = vec2<u32>(src_i);
+
     let ca_rc = adjustments.global.chromatic_aberration_red_cyan;
     let ca_by = adjustments.global.chromatic_aberration_blue_yellow;
-    var color_from_texture = textureLoad(input_texture, absolute_coord, 0).rgb;
+    var color_from_texture = textureLoad(input_texture, src_u, 0).rgb;
     if (abs(ca_rc) > 0.000001 || abs(ca_by) > 0.000001) {
-        color_from_texture = apply_ca_correction(absolute_coord, ca_rc, ca_by);
+        color_from_texture = apply_ca_correction(src_u, ca_rc, ca_by);
     }
-    let original_alpha = textureLoad(input_texture, absolute_coord, 0).a;
+
+    // Glitch RGB split: read red/blue channels from horizontally offset pixels.
+    if (adjustments.global.glitch_amount > 0.0 && adjustments.global.glitch_rgb_split > 0.0) {
+        let off = i32(round(adjustments.global.glitch_amount * adjustments.global.glitch_rgb_split * full_dims.x * 0.02));
+        let rc = clamp(src_i + vec2<i32>(off, 0), vec2<i32>(0), max_src);
+        let bc = clamp(src_i - vec2<i32>(off, 0), vec2<i32>(0), max_src);
+        let r = textureLoad(input_texture, vec2<u32>(rc), 0).r;
+        let b = textureLoad(input_texture, vec2<u32>(bc), 0).b;
+        color_from_texture = vec3<f32>(r, color_from_texture.g, b);
+    }
+
+    let original_alpha = textureLoad(input_texture, src_u, 0).a;
 
     var initial_linear_rgb: vec3<f32>;
     let is_raw = adjustments.global.is_raw_image;
@@ -1687,6 +1916,8 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         let noise_val = mix(noise_base, noise_rough, roughness);
         final_rgb += vec3<f32>(noise_val) * amount * luma_mask;
     }
+
+    final_rgb = apply_creative_effects(final_rgb, vec2<f32>(absolute_coord_i), scale, full_dims);
 
     if (adjustments.global.show_clipping == 1u) {
         let HIGHLIGHT_WARNING_COLOR = vec3<f32>(1.0, 0.0, 0.0);

@@ -5,7 +5,10 @@ import { Stage, Layer, Ellipse, Line, Transformer, Group, Circle, Rect } from 'r
 import { PercentCrop, Crop } from 'react-image-crop';
 import { Adjustments, AiPatch, Coord, MaskContainer } from '../../../utils/adjustments';
 import { Mask, SubMask, SubMaskMode, ToolType } from '../right/Masks';
-import { AppSettings, BrushSettings, SelectedImage } from '../../ui/AppProperties';
+import type Konva from 'konva';
+import { AppSettings, BrushSettings, Panel, SelectedImage } from '../../ui/AppProperties';
+import { useUIStore } from '../../../store/useUIStore';
+import OverlayNode from './OverlayNode';
 import { RenderSize } from '../../../hooks/useImageRenderSize';
 import type { OverlayMode } from '../right/CropPanel';
 import CompositionOverlays from './overlays/CompositionOverlays';
@@ -1035,6 +1038,11 @@ const ImageCanvas = memo(
     transformState,
     hasRenderedFirstFrame,
   }: ImageCanvasProps) => {
+    const activeRightPanel = useUIStore((s) => s.activeRightPanel);
+    const activeOverlayId = useUIStore((s) => s.activeOverlayId);
+    const setOverlayUI = useUIStore((s) => s.setUI);
+    const isOverlaysActive = activeRightPanel === Panel.Overlays;
+
     const [isCropViewVisible, setIsCropViewVisible] = useState(false);
     const cropImageRef = useRef<HTMLImageElement>(null);
     const [displayedMaskUrl, setDisplayedMaskUrl] = useState<string | null>(null);
@@ -1472,7 +1480,7 @@ const ImageCanvas = memo(
           const x = pos.x / scale + cropX;
           const y = pos.y / scale + cropY;
 
-          let newParams = { ...activeSubMask.parameters };
+          const newParams = { ...activeSubMask.parameters };
           newParams.targetX = x;
           newParams.targetY = y;
           newParams.rotation = adjustments.rotation || 0;
@@ -1720,7 +1728,7 @@ const ImageCanvas = memo(
             return;
           }
 
-          let updatedParams = { ...localInitialDrawParams };
+          const updatedParams = { ...localInitialDrawParams };
 
           if (activeSubMask.type === Mask.Radial) {
             updatedParams.radiusX = Math.max(1, Math.abs(x - dragStartPointer.current.x));
@@ -1916,7 +1924,7 @@ const ImageCanvas = memo(
 
         const activeId = isMasking ? activeMaskId : activeAiSubMaskId;
 
-        let startPoint = { x: box.start.x / scale + cropX, y: box.start.y / scale + cropY };
+        const startPoint = { x: box.start.x / scale + cropX, y: box.start.y / scale + cropY };
         let endPoint = { x: box.end.x / scale + cropX, y: box.end.y / scale + cropY };
 
         const dx = box.end.x - box.start.x;
@@ -2489,6 +2497,68 @@ const ImageCanvas = memo(
                           y={cursorPreview.y}
                         />
                       )}
+                    </Group>
+                  </Group>
+                </Layer>
+              </Stage>
+            </div>
+          )}
+
+          {isOverlaysActive && (
+            <div
+              style={{
+                position: 'absolute',
+                top: stageTop,
+                left: stageLeft,
+                transformOrigin: '0 0',
+                transform: `scale(${1 / maxSafeScale})`,
+                width: stageWidth * maxSafeScale,
+                height: stageHeight * maxSafeScale,
+                zIndex: 4,
+                touchAction: 'none',
+                userSelect: 'none',
+                opacity: isShowingOriginal ? 0 : 1,
+                transition: 'opacity 150ms ease-in-out',
+                ...getEdgeFadeStyle(128),
+              }}
+            >
+              <Stage
+                width={stageWidth * maxSafeScale}
+                height={stageHeight * maxSafeScale}
+                onPointerDown={(e: Konva.KonvaEventObject<PointerEvent>) => {
+                  if (e.target === e.target.getStage()) {
+                    // Empty canvas: deselect and let the photo pan.
+                    setOverlayUI({ activeOverlayId: null });
+                    return;
+                  }
+                  // Grabbing an overlay or a transform handle: keep the photo from panning.
+                  e.cancelBubble = true;
+                  e.evt.stopPropagation();
+                }}
+              >
+                <Layer listening={!showOriginal}>
+                  <Group scaleX={maxSafeScale} scaleY={maxSafeScale}>
+                    <Group x={groupOffsetX} y={groupOffsetY}>
+                      {(adjustments.overlays || []).map((overlay) => (
+                        <OverlayNode
+                          key={overlay.id}
+                          overlay={overlay}
+                          stageWidth={imageRenderSize.width}
+                          stageHeight={imageRenderSize.height}
+                          stageScale={maxSafeScale}
+                          isSelected={overlay.id === activeOverlayId}
+                          onSelect={() => setOverlayUI({ activeOverlayId: overlay.id })}
+                          onInteractionEnd={() => {}}
+                          onChange={(patch) =>
+                            setAdjustments((prev) => ({
+                              ...prev,
+                              overlays: (prev.overlays || []).map((o) =>
+                                o.id === overlay.id ? { ...o, ...patch } : o,
+                              ),
+                            }))
+                          }
+                        />
+                      ))}
                     </Group>
                   </Group>
                 </Layer>

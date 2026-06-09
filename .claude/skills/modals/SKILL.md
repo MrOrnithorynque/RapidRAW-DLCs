@@ -1,6 +1,6 @@
 ---
 name: modals
-description: Use this skill before modifying RapidRAW's modal dialogs in src/components/modals/ — the AppModals.tsx registry, modal open/close state in src/store/useUIStore.ts, and the per-feature modals (Panorama, Hdr, Denoise, NegativeConversion, Culling, Collage, Confirm, CreateFolder, RenameFolder, RenameFile, ImportSettings, CopyPasteSettings) plus the store-independent Transform/LensCorrection (mounted in CropPanel.tsx) and ConfigurePreset (mounted in PresetsPanel.tsx). Covers the gather-params -> invoke command -> progress events -> apply-result pattern, the prop-handler wiring through useProductivityActions.ts, and which modals listen to their own Tauri events. Trigger whenever the user asks to add/change/debug a modal dialog, a modal's open/close state, a feature popup (panorama/hdr/denoise/negative/culling/collage/transform/lens/import/copy-paste/preset), or to wire a new modal-driven tool end-to-end.
+description: Use this skill before modifying RapidRAW's modal dialogs in src/components/modals/ — the AppModals.tsx registry, modal open/close state in src/store/useUIStore.ts, and the per-feature modals (Panorama, Hdr, Denoise, NegativeConversion, Culling, Collage, ImageTrack, Confirm, CreateFolder, RenameFolder, RenameFile, ImportSettings, CopyPasteSettings) plus the store-independent Transform/LensCorrection (mounted in CropPanel.tsx) and ConfigurePreset (mounted in PresetsPanel.tsx). Covers the gather-params -> invoke command -> progress events -> apply-result pattern, the prop-handler wiring through useProductivityActions.ts, and which modals listen to their own Tauri events. Trigger whenever the user asks to add/change/debug a modal dialog, a modal's open/close state, a feature popup (panorama/hdr/denoise/negative/culling/collage/image-track/transform/lens/import/copy-paste/preset), or to wire a new modal-driven tool end-to-end.
 ---
 
 # Modals Skill
@@ -10,7 +10,7 @@ The modal-dialog layer of the RapidRAW frontend. Most modals are registered in `
 ## Key files
 | path | responsibility |
 | --- | --- |
-| `src/components/modals/AppModals.tsx` | Registry that renders 12 modals, reads `useUIStore`/`useProcessStore`/`useEditorStore`, threads close handlers + `props.*` callbacks down |
+| `src/components/modals/AppModals.tsx` | Registry that renders 13 modals, reads `useUIStore`/`useProcessStore`/`useEditorStore`, threads close handlers + `props.*` callbacks down |
 | `src/store/useUIStore.ts` | Source of truth for modal state: `isXModalOpen` flags + complex `*ModalState` objects + the `setUI()` action |
 | `src/hooks/useProductivityActions.ts` | Hosts the actual `invoke()` calls for panorama/hdr/denoise/collage (passed into `AppModals` as `handleStart*`/`handleSave*` props) |
 | `src/hooks/useTauriListeners.ts` | Central listener for `panorama-*`/`hdr-*`/`denoise-*`/`culling-*` events; writes results back into `useUIStore` |
@@ -18,6 +18,7 @@ The modal-dialog layer of the RapidRAW frontend. Most modals are registered in `
 | `src/components/modals/DenoiseModal.tsx` / `NegativeConversionModal.tsx` | Preview + single/batch; each owns a `*-batch-progress` listener and a compare UI |
 | `src/components/modals/CullingModal.tsx` | Multi-stage (`settings`->`progress`->`results`); invokes `Invokes.CullImages`, renders AI suggestions |
 | `src/components/modals/CollageModal.tsx` | Canvas-drawn collage; loads images, exports base64 to `handleSaveCollage` |
+| `src/components/modals/ImageTrackModal.tsx` | Canvas-drawn "image track" composite; exports base64 to `props.handleSaveImageTrack` → `Invokes.SaveImageTrack` (synchronous, like Collage) |
 | `src/components/modals/TransformModal.tsx` / `LensCorrectionModal.tsx` | Mounted in `CropPanel.tsx` with local `useState`; live `preview_geometry_transform`, return via `onApply(params)` |
 | `src/components/modals/ConfigurePresetModal.tsx` | Mounted in `PresetsPanel.tsx`; gathers preset name + include flags, returns via `onSave` |
 | `src/components/modals/ConfirmModal.tsx` / `CreateFolderModal.tsx` / `RenameFolderModal.tsx` / `RenameFileModal.tsx` / `ImportSettingsModal.tsx` / `CopyPasteSettingsModal.tsx` | Simple input/confirm dialogs in `AppModals` |
@@ -37,6 +38,7 @@ The modal-dialog layer of the RapidRAW frontend. Most modals are registered in `
 | NegativeConversion | `negativeModalState` | `preview_negative_conversion`, `convert_negatives`, `generate_preview_for_path` | `negative-batch-progress` (in modal) |
 | Culling | `cullingModalState` | `Invokes.CullImages` | `culling-start/progress/complete/error` (in `useTauriListeners`) |
 | Collage | `collageModalState` (`props.handleSaveCollage`) | `Invokes.LoadMetadata`, `Invokes.GeneratePreviewForPath`, `Invokes.SaveCollage` | none (synchronous canvas draw) |
+| ImageTrack | `imageTrackModalState` (`props.handleSaveImageTrack`) | `Invokes.SaveImageTrack` (`save_image_track`) | none (synchronous canvas draw) |
 | Transform | local state in `CropPanel.tsx`, returns `onApply` | `preview_geometry_transform` | none |
 | LensCorrection | local state in `CropPanel.tsx`, returns `onApply` | `get_lensfun_makers`, `get_lensfun_lenses_for_maker`, `autodetect_lens`, `get_lens_distortion_params`, `preview_geometry_transform`, `Invokes.LoadSettings` | none |
 | ConfigurePreset | local state in `PresetsPanel.tsx`, returns `onSave` | none (parent persists) | none |
@@ -53,7 +55,7 @@ The modal-dialog layer of the RapidRAW frontend. Most modals are registered in `
 | `CullingModalState` | type | `{ isOpen, suggestions, progress: {current,total,stage}, error, pathsToCull }` |
 | `CollageModalState` | type | `{ isOpen, sourceImages: ImageFile[] }` |
 | `ConfirmModalState` | type | `{ isOpen, title?, message?, confirmText?, confirmVariant?, onConfirm?() }` |
-| `Invokes.StitchPanorama` `MergeHdr` `SavePanorama` `SaveHdr` `ApplyDenoising` `SaveDenoisedImage` `SaveCollage` `CullImages` `LoadMetadata` `GeneratePreviewForPath` | command | enum in `src/components/ui/AppProperties.tsx` (`Invokes`) |
+| `Invokes.StitchPanorama` `MergeHdr` `SavePanorama` `SaveHdr` `ApplyDenoising` `SaveDenoisedImage` `SaveCollage` `SaveImageTrack` `CullImages` `LoadMetadata` `GeneratePreviewForPath` | command | enum in `src/components/ui/AppProperties.tsx` (`Invokes`) |
 
 ## Conventions (follow these when coding here)
 - Visibility flag goes in `useUIStore`; transient UI (mount/show animation, local sliders, isSaving) stays in the modal's own `useState`.

@@ -46,7 +46,7 @@ Two correction workflows: **denoising** (`src-tauri/src/denoising.rs`, BM3D on C
 ## Conventions (follow these when coding here)
 - Denoise intensity is normalized `[0.001, 1.0]` in Rust; the UI slider is `0–100` and the **frontend** divides by 100 (`intensity / 100`) before invoking. Defaults set in `DenoiseModal`: `50`/`ai` for RAW, `15`/`bm3d` for non-RAW.
 - `method` is the literal string `"ai"` or `"bm3d"` — match it exactly in `denoise_image`.
-- Lens UI amount sliders are `0–200` (percent); `GeometryParams` divides amounts by 100 in `build…from_adjustments` (so a value of `100` ⇒ `1.0` = full correction). Distortion model field is `0` (poly3/poly5) or `1` (ptlens); branch with `is_ptlens = params.lens_model == 1`.
+- Lens UI amount sliders are `0–200` (percent); `GeometryParams` divides amounts by 100 in `get_geometry_params_from_json` (so a value of `100` ⇒ `1.0` = full correction). Distortion model field is `0` (poly3/poly5) or `1` (ptlens); branch with `is_ptlens = params.lens_model == 1`.
 - `LensDistortionParams` fields serialize as plain snake_case (no `serde(rename)`); the frontend reads `k1`, `model`, `tca_vr`, `tca_vb`, `vig_k1`… verbatim. Keep the names in sync.
 - Lensfun XML attributes use `#[serde(rename = "@attr")]` (e.g. `@focal`, `@k1`); elements use kebab-case via `rename_all`. Add new attributes the same way.
 - New backend commands must be: `#[tauri::command]` → registered in `invoke_handler!` in `lib.rs` → added to the `Invokes` enum in `AppProperties.tsx` → called via `invoke(Invokes.X, …)` (project hard rule: never invoke by raw string). Today only `apply_denoising`/`save_denoised_image` have `Invokes` entries; `batch_denoise_images` and all four lens commands are still called by raw string — prefer adding the enum entry for anything new. See `tauri-bridge` / `backend`.
@@ -71,7 +71,7 @@ Two correction workflows: **denoising** (`src-tauri/src/denoising.rs`, BM3D on C
 
 ## How to add a new lens correction type (e.g. a new coefficient)
 1. Add the field(s) to the relevant Lensfun struct in `lens_correction.rs` with `#[serde(rename = "@attr")]`, extend `LensDistortionParams` (snake_case, `Serialize`), and populate it in `Lens::get_distortion_params` (interpolate by focal like TCA/distortion).
-2. Add matching fields to `GeometryParams` in `image_processing.rs` (struct, `Default`, and the `build…from_adjustments` reader that pulls from `adjustments[...]`), then implement the per-pixel math in `warp_image_geometry` (and mirror in `unwarp_image_geometry`).
+2. Add matching fields to `GeometryParams` in `image_processing.rs` (struct, `Default`, and the `get_geometry_params_from_json` reader that pulls from `adjustments[...]`), then implement the per-pixel math in `warp_image_geometry` (and mirror in `unwarp_image_geometry`).
 3. Add the keys to `src/utils/adjustments.ts` (enum + `Adjustments` type + `INITIAL_ADJUSTMENTS` + hydration), surface a toggle/slider in `LensCorrectionModal.tsx`, and include the field in the `GeometryParams` object the modal sends to `preview_geometry_transform`.
 4. Add i18n keys and run `npm run i18n:extract`.
 

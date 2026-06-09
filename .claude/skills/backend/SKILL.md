@@ -1,11 +1,11 @@
 ---
 name: backend
-description: Use this skill before modifying the Rust/Tauri app skeleton in src-tauri/ — lib.rs (run(), the invoke_handler! list of all 97 commands, preview/analytics workers), app_state.rs (AppState Mutex caches + GPU/AI + mpsc channels), app_settings.rs (settings.json), formats.rs, adjustment_utils.rs, window_customizer.rs, and build.rs (ONNX download). This is the INDEX skill for the whole Rust backend and the map to the other backend skills. Trigger whenever the user asks to add/register/remove a Tauri command, touch AppState/global caches/workers, change app settings persistence, wire a backend->frontend event, edit the app builder/plugins/window lifecycle, or generally "modify the backend / Rust / src-tauri".
+description: Use this skill before modifying the Rust/Tauri app skeleton in src-tauri/ — lib.rs (run(), the invoke_handler! list of all 98 commands, preview/analytics workers), app_state.rs (AppState Mutex caches + GPU/AI + mpsc channels), app_settings.rs (settings.json), formats.rs, adjustment_utils.rs, window_customizer.rs, and build.rs (ONNX download). This is the INDEX skill for the whole Rust backend and the map to the other backend skills. Trigger whenever the user asks to add/register/remove a Tauri command, touch AppState/global caches/workers, change app settings persistence, wire a backend->frontend event, edit the app builder/plugins/window lifecycle, or generally "modify the backend / Rust / src-tauri".
 ---
 
 # Backend (Tauri App Skeleton) Skill
 
-The Rust backend is a Tauri v2 app in `src-tauri/src/` (~26k lines, 27 `.rs` modules + 4 WGSL shaders). This skill covers the app skeleton: the builder/`run()`, the global `AppState`, settings persistence, format detection, and the build-time ONNX download. Per-feature logic lives in the sibling skills below.
+The Rust backend is a Tauri v2 app in `src-tauri/src/` (~26k lines, 34 `.rs` files / 28 declared modules + 4 WGSL shaders). This skill covers the app skeleton: the builder/`run()`, the global `AppState`, settings persistence, format detection, and the build-time ONNX download. Per-feature logic lives in the sibling skills below.
 
 ## Backend module map
 
@@ -14,12 +14,12 @@ The Rust backend is a Tauri v2 app in `src-tauri/src/` (~26k lines, 27 `.rs` mod
 | `image-pipeline` | `image_processing.rs`, `image_loader.rs`, `raw_processing.rs`, `cache_utils.rs`, `adjustment_utils.rs` |
 | `gpu-shaders` | `gpu_processing.rs`, `shaders/*.wgsl` |
 | `masking` | `mask_generation.rs` |
-| `ai-features` | `ai_commands.rs`, `ai_processing.rs`, `ai_connector.rs`, `tagging.rs`, `tagging_utils.rs`, `culling.rs` |
+| `ai-features` | `ai_commands.rs`, `ai_processing.rs`, `ai_connector.rs`, `tagging.rs`, `tagging_utils/`, `culling.rs` |
 | `file-management` | `file_management.rs`, `image_loader.rs`, `cache_utils.rs` |
 | `export` | `export_processing.rs`, `lut_processing.rs` |
 | `metadata-exif` | `exif_processing.rs` |
 | `corrections` | `lens_correction.rs`, `denoising.rs` |
-| `compositions` | `panorama_stitching.rs`, `panorama_utils.rs`, HDR (`merge_hdr`/`save_hdr`), collage (`save_collage`), `negative_conversion.rs` |
+| `compositions` | `panorama_stitching.rs`, `panorama_utils/`, HDR (`merge_hdr`/`save_hdr`), collage (`save_collage`), `negative_conversion.rs` |
 | `presets` | `preset_converter.rs` |
 | `android` | `android_integration.rs`, mobile build |
 | `tauri-bridge` | frontend `invoke()` / `Invokes` enum / `listen()` wiring |
@@ -28,7 +28,7 @@ The Rust backend is a Tauri v2 app in `src-tauri/src/` (~26k lines, 27 `.rs` mod
 
 | path | responsibility |
 |---|---|
-| `src-tauri/src/lib.rs` | `run()` entry (line 1890): builds Tauri app, plugins, `.manage(AppState{...})` (line 2190), `invoke_handler!` (lines 2222–2320, 97 cmds), window lifecycle, workers, logging |
+| `src-tauri/src/lib.rs` | `run()` entry (line 1890): builds Tauri app, plugins, `.manage(AppState{...})` (line 2190), `invoke_handler!` (lines 2222–2320, 98 cmds), window lifecycle, workers, logging |
 | `src-tauri/src/main.rs` | thin binary that calls `rapidraw_lib::run()` |
 | `src-tauri/src/app_state.rs` | `AppState` struct (30 fields) + `LoadedImage`, `CachedPreview`, `PreviewJob`, `AnalyticsJob`, `ThumbnailManager`, `WindowState` |
 | `src-tauri/src/app_settings.rs` | `AppSettings` + `load_settings`/`save_settings` commands; reads/writes `settings.json` in `app_data_dir()` |
@@ -51,11 +51,11 @@ The Rust backend is a Tauri v2 app in `src-tauri/src/` (~26k lines, 27 `.rs` mod
 | symbol | kind | what |
 |---|---|---|
 | `run()` | fn (lib.rs:1890) | builds the app: plugins, `setup()`, `on_window_event`, `.manage(AppState)`, `invoke_handler!`, `RunEvent` loop |
-| `AppState` | struct (app_state.rs:109) | 30 fields, all `Mutex<...>`/`Arc<...>` except `ai_init_lock: TokioMutex<()>`. Holds `original_image`, `cached_preview`, `gpu_context`, caches (`mask_cache`, `patch_cache`, `geometry_cache`, `lut_cache`, `decoded_image_cache`), the worker senders, etc. |
+| `AppState` | struct (app_state.rs:109) | 30 fields, all `Mutex<...>`/`Arc<...>` except `window_setup_complete: AtomicBool` and `ai_init_lock: TokioMutex<()>`. Holds `original_image`, `cached_preview`, `gpu_context`, caches (`mask_cache`, `patch_cache`, `geometry_cache`, `lut_cache`, `decoded_image_cache`), the worker senders, etc. |
 | `PreviewJob` / `AnalyticsJob` | struct | unit of work for the preview/analytics workers; `PreviewJob.responder` is a `oneshot::Sender<Vec<u8>>` |
 | `apply_adjustments` | command (lib.rs:686) | queues a `PreviewJob`, awaits oneshot, returns `tauri::ipc::Response` (raw JPEG or WGPU-signal bytes) |
 | `frontend_ready` | command (lib.rs:1805) | called once when UI mounts; restores window size/pos/maximize/fullscreen, shows window, emits `open-with-file` |
-| `load_settings`/`save_settings` | command (app_settings.rs:518/575) | load migrates `copy_paste_settings`; save also resizes `decoded_image_cache` capacity |
+| `load_settings`/`save_settings` | command (app_settings.rs:518/576) | load migrates `copy_paste_settings`; save also resizes `decoded_image_cache` capacity |
 | `AppSettings` | struct (app_settings.rs) | persisted prefs; new fields must use `Option<T>`/`#[serde(default)]` for back-compat |
 | `is_raw_file` / `is_supported_image_file` | fn (formats.rs) | case-insensitive extension checks against the format tables |
 | `PinchZoomDisablePlugin` | struct (window_customizer.rs) | custom Tauri `Plugin` registered in the builder |

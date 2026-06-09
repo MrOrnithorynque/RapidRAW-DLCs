@@ -13,7 +13,7 @@ The hooks layer in `src/hooks/` holds all the domain logic that sits between Rea
 | `src/hooks/useImageProcessing.ts` | Core render loop: ROI calc from zoom/pan, `apply_adjustments` invoke, JPEG/`WGPU_RENDER`/interactive-patch decode, 3-job pipeline, hi-fi zoom debounce, multi-select delta apply |
 | `src/hooks/useEditorActions.ts` | `setAdjustments` + module-level `debouncedSave` (300ms) / `debouncedSetHistory` (500ms); rotate, auto, LUT, reset, copy/paste, zoom |
 | `src/hooks/useAiMasking.ts` | Generative replace, quick erase, AI mask (subject/depth/foreground/sky) generation; Clerk token via `useAuth()` |
-| `src/hooks/useTauriListeners.ts` | Subscribes ~40 backend events; RAF-batches thumbnail/rating/edit-status updates |
+| `src/hooks/useTauriListeners.ts` | Subscribes ~35 backend events; RAF-batches thumbnail/rating/edit-status updates |
 | `src/hooks/useKeyboardShortcuts.ts` | Builds `comboMap` from keybinds, window `keydown` dispatch to actions + builtin shortcuts |
 | `src/hooks/useAppNavigation.ts` | `handleImageSelect`, `handleSelectSubfolder`, home/back, album/folder switching, session restore |
 | `src/hooks/useAppInitialization.ts` | One-shot bootstrap: `load_settings`, supported types, theme/i18n, folder state; settings-persist watchers |
@@ -55,7 +55,7 @@ Other hooks present: `useExportSettings`, `useProductivityActions`, `useWaveform
 - **`currentResRef` only grows**: `requestHiFiZoom` skips if `targetRes <= currentResRef.current`. It is reset to 0 on image/geometry change — do not forget when adding a new path that needs re-render.
 - **ROI is null unless zoomed**: `calculateROI` returns null when `baseRenderSize` is unset, `scale <= 1.01`, or the clamped region covers ~the whole frame. ROI is derived from `baseRenderSize`, not `originalSize`. Transform state (zoom/pan) lives in `transformWrapperRef.current.instance.transformState`, NOT Zustand.
 - **Module-level debounce is shared**: `debouncedSave`/`debouncedSetHistory` are singletons; a `.flush()`/`.cancel()` in one hook affects all callers. `useAppNavigation` flushes save and cancels history on every transition — preserve that ordering.
-- **Copy/paste whitelist**: copy/paste/preset code iterates `COPYABLE_ADJUSTMENT_KEYS` and uses `INITIAL_ADJUSTMENTS` for merge/tool delta detection. A new `Adjustments` field is silently ignored until added to that list (see `adjustments` / `presets` skills).
+- **Copy/paste whitelist**: copy/paste/preset code iterates `COPYABLE_ADJUSTMENT_KEYS` and uses `INITIAL_ADJUSTMENTS` for merge/tool delta detection. A new `Adjustments` field is silently ignored until added to that list (see `adjustments-ui` / `presets` skills).
 - **Listeners cleanup**: every `listen(...)` returns a promise resolving to an unlisten fn; `useTauriListeners` must `then((unlisten) => unlisten())` for each on cleanup. Add new listeners to the same array.
 
 ## How to add a hook that calls a new backend command + listens for its events

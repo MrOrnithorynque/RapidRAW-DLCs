@@ -7,6 +7,7 @@ const RIGHT_PANEL_ORDER = [
   Panel.Crop,
   Panel.Masks,
   Panel.Ai,
+  Panel.Overlays,
   Panel.Presets,
   Panel.Export,
 ];
@@ -31,6 +32,11 @@ export interface ConfirmModalState {
 export interface CollageModalState {
   isOpen: boolean;
   sourceImages: ImageFile[];
+}
+
+export interface ImageTrackModalState {
+  isOpen: boolean;
+  sourcePath: string | null;
 }
 
 export interface PanoramaModalState {
@@ -96,6 +102,7 @@ interface UIState {
   renderedRightPanel: Panel | null;
   slideDirection: number;
   collapsibleSectionsState: CollapsibleSectionsState;
+  activeOverlayId: string | null;
 
   // Modals & Dialogs
   isCreateFolderModalOpen: boolean;
@@ -122,6 +129,7 @@ interface UIState {
   denoiseModalState: DenoiseModalState;
   cullingModalState: CullingModalState;
   collageModalState: CollageModalState;
+  imageTrackModalState: ImageTrackModalState;
 
   // Actions
   setUI: (updater: Partial<UIState> | ((state: UIState) => Partial<UIState>)) => void;
@@ -148,6 +156,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   renderedRightPanel: Panel.Adjustments,
   slideDirection: 1,
   collapsibleSectionsState: { basic: true, color: false, curves: true, details: false, effects: false },
+  activeOverlayId: null,
 
   isCreateFolderModalOpen: false,
   isRenameFolderModalOpen: false,
@@ -193,6 +202,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   },
   cullingModalState: { isOpen: false, suggestions: null, progress: null, error: null, pathsToCull: [] },
   collageModalState: { isOpen: false, sourceImages: [] },
+  imageTrackModalState: { isOpen: false, sourcePath: null },
 
   setUI: (updater) => set((state) => (typeof updater === 'function' ? updater(state) : updater)),
 

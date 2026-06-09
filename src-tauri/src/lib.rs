@@ -26,6 +26,7 @@ mod lens_correction;
 mod lut_processing;
 mod mask_generation;
 mod negative_conversion;
+mod overlay_processing;
 mod panorama_stitching;
 mod panorama_utils;
 mod preset_converter;
@@ -1582,6 +1583,36 @@ async fn save_collage(base64_data: String, first_path_str: String) -> Result<Str
 }
 
 #[tauri::command]
+async fn save_image_track(base64_data: String, first_path_str: String) -> Result<String, String> {
+    let data_url_prefix = "data:image/png;base64,";
+    if !base64_data.starts_with(data_url_prefix) {
+        return Err("Invalid base64 data format".to_string());
+    }
+    let encoded_data = &base64_data[data_url_prefix.len()..];
+
+    let decoded_bytes = general_purpose::STANDARD
+        .decode(encoded_data)
+        .map_err(|e| format!("Failed to decode base64: {}", e))?;
+
+    let (first_path, _) = parse_virtual_path(&first_path_str);
+    let parent_dir = first_path
+        .parent()
+        .ok_or_else(|| "Could not determine parent directory of the image.".to_string())?;
+    let stem = first_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("image");
+
+    let output_filename = format!("{}_Track.png", stem);
+    let output_path = parent_dir.join(output_filename);
+
+    fs::write(&output_path, &decoded_bytes)
+        .map_err(|e| format!("Failed to save tracked image: {}", e))?;
+
+    Ok(output_path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
 fn generate_preview_for_path(
     path: String,
     js_adjustments: Value,
@@ -2229,6 +2260,7 @@ pub fn run() {
             get_log_file_path,
             frontend_log,
             save_collage,
+            save_image_track,
             merge_hdr,
             save_hdr,
             load_and_parse_lut,
@@ -2317,6 +2349,8 @@ pub fn run() {
             lens_correction::get_lens_distortion_params,
             negative_conversion::preview_negative_conversion,
             negative_conversion::convert_negatives,
+            overlay_processing::list_overlay_assets,
+            overlay_processing::get_overlay_asset,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

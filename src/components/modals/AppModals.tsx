@@ -19,6 +19,7 @@ import ConfirmModal from './ConfirmModal';
 import ImportSettingsModal from './ImportSettingsModal';
 import CullingModal from './CullingModal';
 import CollageModal from './CollageModal';
+import ImageTrackModal from './ImageTrackModal';
 import { AppSettings, Invokes, AlbumItem, Album, AlbumGroup } from '../ui/AppProperties';
 import { CopyPasteSettings } from '../../utils/adjustments';
 
@@ -40,6 +41,7 @@ export interface AppModalsProps {
   handleRate: (rating: number, paths?: string[]) => void;
   executeDelete: (paths: string[], options: any) => Promise<void>;
   handleSaveCollage: (base64Data: string, firstPath: string) => Promise<string>;
+  handleSaveImageTrack: (base64Data: string, firstPath: string) => Promise<string>;
   handleCreateAlbumItem: (name: string, type: 'album' | 'group') => Promise<void>;
   handleRenameAlbumItem: (newName: string) => Promise<void>;
 }
@@ -73,6 +75,7 @@ export default function AppModals(props: AppModalsProps) {
     denoiseModalState,
     cullingModalState,
     collageModalState,
+    imageTrackModalState,
     setUI,
   } = useUIStore(
     useShallow((state) => ({
@@ -95,6 +98,7 @@ export default function AppModals(props: AppModalsProps) {
       denoiseModalState: state.denoiseModalState,
       cullingModalState: state.cullingModalState,
       collageModalState: state.collageModalState,
+      imageTrackModalState: state.imageTrackModalState,
       setUI: state.setUI,
     })),
   );
@@ -322,6 +326,12 @@ export default function AppModals(props: AppModalsProps) {
         onSave={props.handleSaveCollage}
         sourceImages={collageModalState.sourceImages}
         thumbnails={thumbnails}
+      />
+      <ImageTrackModal
+        isOpen={imageTrackModalState.isOpen}
+        onClose={() => setUI({ imageTrackModalState: { isOpen: false, sourcePath: null } })}
+        onSave={props.handleSaveImageTrack}
+        sourcePath={imageTrackModalState.sourcePath}
       />
     </>
   );

@@ -92,6 +92,33 @@ export enum CreativeAdjustment {
   FlareAmount = 'flareAmount',
 }
 
+export enum StyleEffect {
+  HalftoneAmount = 'halftoneAmount',
+  HalftoneScale = 'halftoneScale',
+  HalftoneAngle = 'halftoneAngle',
+  HalftoneShape = 'halftoneShape',
+  ScanlineAmount = 'scanlineAmount',
+  ScanlineCount = 'scanlineCount',
+  ScanlineNoise = 'scanlineNoise',
+  MonoAmount = 'monoAmount',
+  PosterizeAmount = 'posterizeAmount',
+  PosterizeLevels = 'posterizeLevels',
+  HueRotate = 'hueRotate',
+  GlitchAmount = 'glitchAmount',
+  GlitchRgbSplit = 'glitchRgbSplit',
+  GlitchBlocks = 'glitchBlocks',
+  GlitchNoise = 'glitchNoise',
+  GlassAmount = 'glassAmount',
+  GlassScale = 'glassScale',
+  GlassStrength = 'glassStrength',
+  PixelateAmount = 'pixelateAmount',
+  WaveAmount = 'waveAmount',
+  WaveFrequency = 'waveFrequency',
+  EdgeAmount = 'edgeAmount',
+  ThermalAmount = 'thermalAmount',
+  XrayAmount = 'xrayAmount',
+}
+
 export enum TransformAdjustment {
   TransformDistortion = 'transformDistortion',
   TransformVertical = 'transformVertical',
@@ -166,17 +193,37 @@ export interface Adjustments {
   curveMode?: 'point' | 'parametric';
   crop: Crop | null;
   dehaze: number;
+  edgeAmount: number;
   exposure: number;
   flipHorizontal: boolean;
   flipVertical: boolean;
   flareAmount: number;
   glowAmount: number;
+  glassAmount: number;
+  glassScale: number;
+  glassStrength: number;
+  glitchAmount: number;
+  glitchBlocks: number;
+  glitchNoise: number;
+  glitchRgbSplit: number;
   grainAmount: number;
   grainRoughness: number;
   grainSize: number;
   halationAmount: number;
+  halftoneAmount: number;
+  halftoneScale: number;
+  halftoneAngle: number;
+  halftoneShape: number;
+  halftoneEnabled: boolean;
+  scanlinesEnabled: boolean;
+  stylizeEnabled: boolean;
+  glitchEnabled: boolean;
+  glassEnabled: boolean;
+  distortEnabled: boolean;
+  artisticEnabled: boolean;
   highlights: number;
   hsl: Hsl;
+  hueRotate: number;
   lensCorrectionMode: 'auto' | 'manual';
   lensDistortionAmount: number;
   lensVignetteAmount: number;
@@ -204,7 +251,12 @@ export interface Adjustments {
   lutPath?: string | null;
   lutSize?: number;
   masks: Array<MaskContainer>;
+  monoAmount: number;
   orientationSteps: number;
+  overlays: Array<Overlay>;
+  pixelateAmount: number;
+  posterizeAmount: number;
+  posterizeLevels: number;
   rotation: number;
   saturation: number;
   sectionVisibility: SectionVisibility;
@@ -213,7 +265,11 @@ export interface Adjustments {
   sharpnessThreshold: number;
   showClipping: boolean;
   structure: number;
+  scanlineAmount: number;
+  scanlineCount: number;
+  scanlineNoise: number;
   temperature: number;
+  thermalAmount: number;
   tint: number;
   toneMapper: 'agx' | 'basic';
   transformDistortion: number;
@@ -229,7 +285,32 @@ export interface Adjustments {
   vignetteFeather: number;
   vignetteMidpoint: number;
   vignetteRoundness: number;
+  waveAmount: number;
+  waveFrequency: number;
   whites: number;
+  xrayAmount: number;
+}
+
+export interface Overlay {
+  id: string;
+  name: string;
+  // Relative path of the micrographic SVG within the bundled catalog, e.g. "Symbols/DOTS.svg".
+  source: string;
+  visible: boolean;
+  // Normalized center position in image space (0..1).
+  x: number;
+  y: number;
+  // Overlay width as a fraction of the image's smaller dimension.
+  scale: number;
+  // Clockwise rotation in degrees.
+  rotation: number;
+  // Hex fill override (e.g. "#ffffff"); null keeps the SVG's original colors.
+  color: string | null;
+  // 0..100.
+  opacity: number;
+  // Tight content box [x, y, w, h] normalized to the SVG viewBox; trims empty margins. Optional
+  // (overlays placed before this existed render the whole SVG).
+  contentBox?: number[] | null;
 }
 
 export interface AiPatch {
@@ -491,15 +572,34 @@ export const INITIAL_ADJUSTMENTS: Adjustments = {
   parametricCurve: getDefaultParametricCurve(),
   curveMode: 'point',
   dehaze: 0,
+  edgeAmount: 0,
   exposure: 0,
   flipHorizontal: false,
   flipVertical: false,
   flareAmount: 0,
+  glassAmount: 0,
+  glassScale: 8,
+  glassStrength: 50,
+  glitchAmount: 0,
+  glitchBlocks: 40,
+  glitchNoise: 30,
+  glitchRgbSplit: 40,
   glowAmount: 0,
   grainAmount: 0,
   grainRoughness: 50,
   grainSize: 25,
   halationAmount: 0,
+  halftoneAmount: 0,
+  halftoneScale: 6,
+  halftoneAngle: 45,
+  halftoneShape: 0,
+  halftoneEnabled: true,
+  scanlinesEnabled: true,
+  stylizeEnabled: true,
+  glitchEnabled: true,
+  glassEnabled: true,
+  distortEnabled: true,
+  artisticEnabled: true,
   highlights: 0,
   hsl: {
     aquas: { hue: 0, saturation: 0, luminance: 0 },
@@ -511,6 +611,7 @@ export const INITIAL_ADJUSTMENTS: Adjustments = {
     reds: { hue: 0, saturation: 0, luminance: 0 },
     yellows: { hue: 0, saturation: 0, luminance: 0 },
   },
+  hueRotate: 0,
   lensCorrectionMode: 'manual',
   lensDistortionAmount: 100,
   lensVignetteAmount: 100,
@@ -528,7 +629,12 @@ export const INITIAL_ADJUSTMENTS: Adjustments = {
   lutPath: null,
   lutSize: 0,
   masks: [],
+  monoAmount: 0,
   orientationSteps: 0,
+  overlays: [],
+  pixelateAmount: 0,
+  posterizeAmount: 0,
+  posterizeLevels: 6,
   rotation: 0,
   saturation: 0,
   sectionVisibility: {
@@ -543,7 +649,11 @@ export const INITIAL_ADJUSTMENTS: Adjustments = {
   sharpnessThreshold: 15,
   showClipping: false,
   structure: 0,
+  scanlineAmount: 0,
+  scanlineCount: 240,
+  scanlineNoise: 0,
   temperature: 0,
+  thermalAmount: 0,
   tint: 0,
   toneMapper: 'basic',
   transformDistortion: 0,
@@ -559,7 +669,10 @@ export const INITIAL_ADJUSTMENTS: Adjustments = {
   vignetteFeather: 50,
   vignetteMidpoint: 50,
   vignetteRoundness: 0,
+  waveAmount: 0,
+  waveFrequency: 12,
   whites: 0,
+  xrayAmount: 0,
 };
 
 const deepCloneCurves = (curves: any): Curves => ({
@@ -643,6 +756,20 @@ export const normalizeLoadedAdjustments = (loadedAdjustments: Adjustments): any 
     subMasks: normalizeSubMasks(patch.subMasks),
   }));
 
+  const normalizedOverlays = (loadedAdjustments.overlays || []).map((overlay: Partial<Overlay>) => ({
+    name: '',
+    source: '',
+    visible: true,
+    x: 0.5,
+    y: 0.5,
+    scale: 0.3,
+    rotation: 0,
+    color: null,
+    opacity: 100,
+    id: uuidv4(),
+    ...overlay,
+  }));
+
   return {
     ...INITIAL_ADJUSTMENTS,
     ...loadedAdjustments,
@@ -678,6 +805,7 @@ export const normalizeLoadedAdjustments = (loadedAdjustments: Adjustments): any 
     curveMode: loadedAdjustments.curveMode || INITIAL_ADJUSTMENTS.curveMode,
     masks: normalizedMasks,
     aiPatches: normalizedAiPatches,
+    overlays: normalizedOverlays,
     sectionVisibility: {
       ...INITIAL_ADJUSTMENTS.sectionVisibility,
       ...(loadedAdjustments.sectionVisibility || {}),
@@ -754,6 +882,42 @@ export const ADJUSTMENT_GROUPS: Record<string, AdjustmentGroup[]> = {
       keys: [CreativeAdjustment.GlowAmount, CreativeAdjustment.HalationAmount, CreativeAdjustment.FlareAmount],
     },
     {
+      label: 'modals.copyPaste.groups.creativeStyle',
+      keys: [
+        StyleEffect.HalftoneAmount,
+        StyleEffect.HalftoneScale,
+        StyleEffect.HalftoneAngle,
+        StyleEffect.HalftoneShape,
+        StyleEffect.ScanlineAmount,
+        StyleEffect.ScanlineCount,
+        StyleEffect.ScanlineNoise,
+        StyleEffect.MonoAmount,
+        StyleEffect.PosterizeAmount,
+        StyleEffect.PosterizeLevels,
+        StyleEffect.HueRotate,
+        StyleEffect.GlitchAmount,
+        StyleEffect.GlitchRgbSplit,
+        StyleEffect.GlitchBlocks,
+        StyleEffect.GlitchNoise,
+        StyleEffect.GlassAmount,
+        StyleEffect.GlassScale,
+        StyleEffect.GlassStrength,
+        StyleEffect.PixelateAmount,
+        StyleEffect.WaveAmount,
+        StyleEffect.WaveFrequency,
+        StyleEffect.EdgeAmount,
+        StyleEffect.ThermalAmount,
+        StyleEffect.XrayAmount,
+        'halftoneEnabled',
+        'scanlinesEnabled',
+        'stylizeEnabled',
+        'glitchEnabled',
+        'glassEnabled',
+        'distortEnabled',
+        'artisticEnabled',
+      ],
+    },
+    {
       label: 'modals.copyPaste.groups.lut',
       keys: [Effect.LutIntensity, Effect.LutName, Effect.LutPath, Effect.LutSize, Effect.LutData],
     },
@@ -793,6 +957,7 @@ export const ADJUSTMENT_GROUPS: Record<string, AdjustmentGroup[]> = {
     },
   ],
   masks: [{ label: 'modals.copyPaste.groups.masks', keys: ['masks'] }],
+  overlays: [{ label: 'modals.copyPaste.groups.overlays', keys: ['overlays'] }],
 };
 
 export const COPYABLE_ADJUSTMENT_KEYS: string[] = Object.values(ADJUSTMENT_GROUPS)

@@ -1333,6 +1333,37 @@ pub struct GlobalAdjustments {
     pub halation_amount: f32,
     pub flare_amount: f32,
     pub sharpness_threshold: f32,
+
+    // Creative style effects (global only). Each row below is a 16-byte (4xf32) block.
+    pub halftone_amount: f32,
+    pub halftone_scale: f32,
+    pub halftone_angle: f32,
+    pub halftone_shape: f32,
+
+    pub scanline_amount: f32,
+    pub scanline_count: f32,
+    pub scanline_noise: f32,
+    pub effect_mono: f32,
+
+    pub posterize_amount: f32,
+    pub posterize_levels: f32,
+    pub hue_rotate: f32,
+    pub glitch_amount: f32,
+
+    pub glitch_rgb_split: f32,
+    pub glitch_blocks: f32,
+    pub glitch_noise: f32,
+    pub glass_amount: f32,
+
+    pub glass_scale: f32,
+    pub glass_strength: f32,
+    pub pixelate_amount: f32,
+    pub wave_amount: f32,
+
+    pub wave_frequency: f32,
+    pub edge_amount: f32,
+    pub thermal_amount: f32,
+    pub xray_amount: f32,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Pod, Zeroable, Default)]
@@ -1449,6 +1480,31 @@ struct AdjustmentScales {
     glow: f32,
     halation: f32,
     flares: f32,
+
+    halftone_amount: f32,
+    halftone_scale: f32,
+    halftone_angle: f32,
+    halftone_shape: f32,
+    scanline_amount: f32,
+    scanline_count: f32,
+    scanline_noise: f32,
+    effect_mono: f32,
+    posterize_amount: f32,
+    posterize_levels: f32,
+    hue_rotate: f32,
+    glitch_amount: f32,
+    glitch_rgb_split: f32,
+    glitch_blocks: f32,
+    glitch_noise: f32,
+    glass_amount: f32,
+    glass_scale: f32,
+    glass_strength: f32,
+    pixelate_amount: f32,
+    wave_amount: f32,
+    wave_frequency: f32,
+    edge_amount: f32,
+    thermal_amount: f32,
+    xray_amount: f32,
 }
 
 const SCALES: AdjustmentScales = AdjustmentScales {
@@ -1498,6 +1554,31 @@ const SCALES: AdjustmentScales = AdjustmentScales {
     glow: 100.0,
     halation: 100.0,
     flares: 100.0,
+
+    halftone_amount: 100.0,
+    halftone_scale: 1.0,
+    halftone_angle: 1.0,
+    halftone_shape: 1.0,
+    scanline_amount: 100.0,
+    scanline_count: 1.0,
+    scanline_noise: 100.0,
+    effect_mono: 100.0,
+    posterize_amount: 100.0,
+    posterize_levels: 1.0,
+    hue_rotate: 1.0,
+    glitch_amount: 100.0,
+    glitch_rgb_split: 100.0,
+    glitch_blocks: 100.0,
+    glitch_noise: 100.0,
+    glass_amount: 100.0,
+    glass_scale: 1.0,
+    glass_strength: 100.0,
+    pixelate_amount: 100.0,
+    wave_amount: 100.0,
+    wave_frequency: 1.0,
+    edge_amount: 100.0,
+    thermal_amount: 100.0,
+    xray_amount: 100.0,
 };
 
 fn parse_hsl_adjustments(js_hsl: &serde_json::Value) -> [HslColor; 8] {
@@ -1809,6 +1890,16 @@ pub fn is_image_edited(
     {
         return true;
     }
+    if let Some(overlays) = adj.get("overlays").and_then(|v| v.as_array())
+        && overlays.iter().any(|o| {
+            o.get("visible").and_then(|v| v.as_bool()).unwrap_or(true)
+                && o.get("source")
+                    .and_then(|v| v.as_str())
+                    .is_some_and(|s| !s.is_empty())
+        })
+    {
+        return true;
+    }
 
     if let Some(crop_val) = adj.get("crop")
         && !crop_val.is_null()
@@ -1887,6 +1978,21 @@ fn get_global_adjustments_from_json(
             } else {
                 0.0
             }
+        }
+    };
+
+    // Per-effect enable toggle: returns 0 (bypassed) when the named flag is
+    // false, so a disabled creative effect keeps its slider values but does not
+    // render. Defaults to enabled when the flag is absent (older sidecars).
+    let fx_val = |enabled_key: &str, key: &str, scale: f32, default: Option<f64>| -> f32 {
+        let enabled = js_adjustments
+            .get(enabled_key)
+            .and_then(|v| v.as_bool())
+            .unwrap_or(true);
+        if enabled {
+            get_val("effects", key, scale, default)
+        } else {
+            0.0
         }
     };
 
@@ -2144,6 +2250,86 @@ fn get_global_adjustments_from_json(
             SCALES.sharpness_threshold,
             Some(15.0),
         ),
+
+        halftone_amount: fx_val(
+            "halftoneEnabled",
+            "halftoneAmount",
+            SCALES.halftone_amount,
+            None,
+        ),
+        halftone_scale: get_val("effects", "halftoneScale", SCALES.halftone_scale, Some(6.0)),
+        halftone_angle: get_val(
+            "effects",
+            "halftoneAngle",
+            SCALES.halftone_angle,
+            Some(45.0),
+        ),
+        halftone_shape: get_val("effects", "halftoneShape", SCALES.halftone_shape, None),
+        scanline_amount: fx_val(
+            "scanlinesEnabled",
+            "scanlineAmount",
+            SCALES.scanline_amount,
+            None,
+        ),
+        scanline_count: get_val(
+            "effects",
+            "scanlineCount",
+            SCALES.scanline_count,
+            Some(240.0),
+        ),
+        scanline_noise: get_val("effects", "scanlineNoise", SCALES.scanline_noise, None),
+        effect_mono: fx_val("stylizeEnabled", "monoAmount", SCALES.effect_mono, None),
+        posterize_amount: fx_val(
+            "stylizeEnabled",
+            "posterizeAmount",
+            SCALES.posterize_amount,
+            None,
+        ),
+        posterize_levels: get_val(
+            "effects",
+            "posterizeLevels",
+            SCALES.posterize_levels,
+            Some(6.0),
+        ),
+        hue_rotate: fx_val("stylizeEnabled", "hueRotate", SCALES.hue_rotate, None),
+        glitch_amount: fx_val("glitchEnabled", "glitchAmount", SCALES.glitch_amount, None),
+        glitch_rgb_split: get_val(
+            "effects",
+            "glitchRgbSplit",
+            SCALES.glitch_rgb_split,
+            Some(40.0),
+        ),
+        glitch_blocks: get_val("effects", "glitchBlocks", SCALES.glitch_blocks, Some(40.0)),
+        glitch_noise: get_val("effects", "glitchNoise", SCALES.glitch_noise, Some(30.0)),
+        glass_amount: fx_val("glassEnabled", "glassAmount", SCALES.glass_amount, None),
+        glass_scale: get_val("effects", "glassScale", SCALES.glass_scale, Some(8.0)),
+        glass_strength: get_val(
+            "effects",
+            "glassStrength",
+            SCALES.glass_strength,
+            Some(50.0),
+        ),
+        pixelate_amount: fx_val(
+            "distortEnabled",
+            "pixelateAmount",
+            SCALES.pixelate_amount,
+            None,
+        ),
+        wave_amount: fx_val("distortEnabled", "waveAmount", SCALES.wave_amount, None),
+        wave_frequency: get_val(
+            "effects",
+            "waveFrequency",
+            SCALES.wave_frequency,
+            Some(12.0),
+        ),
+        edge_amount: fx_val("artisticEnabled", "edgeAmount", SCALES.edge_amount, None),
+        thermal_amount: fx_val(
+            "artisticEnabled",
+            "thermalAmount",
+            SCALES.thermal_amount,
+            None,
+        ),
+        xray_amount: fx_val("artisticEnabled", "xrayAmount", SCALES.xray_amount, None),
     }
 }
 

@@ -357,7 +357,11 @@ fn process_image_for_export(
         app_handle,
     )?;
 
-    apply_export_resize_and_watermark(processed_image, export_settings)
+    let resized = apply_export_resize_and_watermark(processed_image, export_settings)?;
+    Ok(crate::overlay_processing::composite_overlays_for_export(
+        resized,
+        js_adjustments,
+    ))
 }
 
 fn build_single_mask_adjustments(all: &AllAdjustments, mask_index: usize) -> AllAdjustments {

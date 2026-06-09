@@ -14,12 +14,12 @@ GPU image-processing pipeline: a wgpu device drives WGSL compute shaders that ap
 | `src-tauri/src/shaders/shader.wgsl` | Main compute shader (`@workgroup_size(8,8,1)` `main`); all adjustments + per-mask blending + LUT + tonemapper |
 | `src-tauri/src/shaders/blur.wgsl` | Separable Gaussian: `horizontal_blur` (256,1,1) + `vertical_blur` (1,256,1), output Rgba16Float |
 | `src-tauri/src/shaders/flare.wgsl` | Lens flare: `threshold_main` + `ghosts_main`, both `@workgroup_size(16,16,1)` |
-| `src-tauri/src/shaders/display.wgsl` | On-window render: `vs_main`/`fs_main` quad with `DisplayTransform` |
+| `src-tauri/src/shaders/display.wgsl` | On-window render: `vs_main`/`fs_main` quad with the `Transform` uniform (Rust-side struct is `DisplayTransform`) |
 | `src-tauri/src/image_processing.rs` | Defines `GlobalAdjustments`/`MaskAdjustments`/`AllAdjustments`, `MAX_MASKS=32`, `GpuContext`, and `get_global_adjustments_from_json` (JSON→struct) |
 | `src-tauri/src/app_state.rs` | `AppState.gpu_context` / `gpu_image_cache` / `gpu_processor` (all `Mutex<Option<...>>`) |
 
 ## How it works
-- Callers (`file_management.rs`, `export_processing.rs`, `lib.rs`) get a `GpuContext` via `get_or_init_gpu_context(&state, &app_handle)` (lazy singleton: instance/adapter/device/queue, optional display surface). JSON edits become a `GlobalAdjustments`/`AllAdjustments` via `get_global_adjustments_from_json` (see `image-processing` / `adjustments` skills).
+- Callers (`file_management.rs`, `export_processing.rs`, `lib.rs`) get a `GpuContext` via `get_or_init_gpu_context(&state, &app_handle)` (lazy singleton: instance/adapter/device/queue, optional display surface). JSON edits become a `GlobalAdjustments`/`AllAdjustments` via `get_global_adjustments_from_json` (see `image-pipeline` / `adjustments-ui` skills).
 - `process_and_get_dynamic_image(base_image, &RenderRequest)` is the public render call. `RenderRequest` = `{ adjustments: AllAdjustments, mask_bitmaps: &[ImageBuffer<Luma<u8>>], lut: Option<Arc<Lut>>, roi: Option<Roi> }`. The input `DynamicImage` is uploaded as an `Rgba16Float` (f16) texture and cached in `gpu_image_cache`.
 - `GpuProcessor::run` does: optional flare preprocess (512x512 map, if `flare_amount > 0`) → tiled loop over `TILE_SIZE=2048` with `TILE_OVERLAP=128` → per tile: four blur passes at fixed radii (sharpness 1.0, tonal 3.5, clarity 8.0, structure 40.0) into f16 textures, then the main compute dispatch (`input_width.div_ceil(8)`, `input_height.div_ceil(8)`, 1) → either CPU readback to RGBA8 bytes or a `WgpuDisplay` render pass.
 - Masks: all mask bitmaps are uploaded into one `R8Unorm` `D2Array` texture (one layer per mask, layer count clamped to `2..=MAX_MASKS`); the shader reads `textureLoad(mask_textures, coords, mask_index, 0).r`. LUT becomes a 3D `Rgba16Float` texture sampled tetrahedrally.

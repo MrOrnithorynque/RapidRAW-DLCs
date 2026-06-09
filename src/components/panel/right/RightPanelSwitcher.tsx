@@ -5,6 +5,7 @@ import {
   Crop,
   Layers,
   Paintbrush,
+  Shapes,
   SwatchBook,
   FileInput,
   type LucideIcon,
@@ -32,6 +33,7 @@ const panelGroups: Array<Array<PanelOptions>> = [
     { id: Panel.Crop, icon: Crop, title: 'editor.switcher.tooltips.crop' },
     { id: Panel.Masks, icon: Layers, title: 'editor.switcher.tooltips.masks' },
     { id: Panel.Ai, icon: Paintbrush, title: 'editor.switcher.tooltips.inpaint' },
+    { id: Panel.Overlays, icon: Shapes, title: 'editor.switcher.tooltips.overlays' },
   ],
   [
     { id: Panel.Presets, icon: SwatchBook, title: 'editor.switcher.tooltips.presets' },

@@ -17,6 +17,7 @@ import {
   Redo,
   RefreshCw,
   RotateCcw,
+  ScanSearch,
   Star,
   SquaresUnite,
   Palette,
@@ -236,6 +237,13 @@ export function useAppContextMenus(props: UseAppContextMenusProps) {
               label: t('contextMenus.editor.frameImage'),
               onClick: () => {
                 setUI({ collageModalState: { isOpen: true, sourceImages: [selectedImage] } });
+              },
+            },
+            {
+              icon: ScanSearch,
+              label: t('contextMenus.editor.imageTrack'),
+              onClick: () => {
+                setUI({ imageTrackModalState: { isOpen: true, sourcePath: selectedImage.path } });
               },
             },
             { label: t('contextMenus.editor.cullImage'), icon: Users, disabled: true },

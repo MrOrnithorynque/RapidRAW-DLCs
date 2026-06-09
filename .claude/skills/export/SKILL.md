@@ -12,7 +12,7 @@ Full-resolution render-and-encode pipeline that reuses the GPU image pipeline to
 |------|----------------|
 | `src-tauri/src/export_processing.rs` | All three export Tauri commands, encoders, resize/watermark, filename wiring, batch orchestration, mask export, LUT export |
 | `src-tauri/src/lut_processing.rs` | `Lut` struct, `parse_lut_file` (.cube/.3dl/HALD), `generate_identity_lut_image`, `convert_image_to_cube_lut` |
-| `src-tauri/src/lib.rs` | Registers commands (invoke_handler near line 2262), `get_or_load_lut` + `lut_cache`, `load_and_parse_lut` command |
+| `src-tauri/src/lib.rs` | Registers commands (the `invoke_handler!` macro opens ~line 2222; the export commands are at ~2262), `get_or_load_lut` + `lut_cache`, `load_and_parse_lut` command |
 | `src/components/panel/right/ExportPanel.tsx` | Export UI; calls `Invokes.ExportImages` / `EstimateExportSizes` / `CancelExport` |
 | `src/components/ui/ExportImportProperties.tsx` | `FileFormats` enum, `FILE_FORMATS` list, `FILENAME_VARIABLES`, `ExportSettings`/`WatermarkSettings`/`ExportPreset` TS types |
 | `src/components/ui/ExportPresetsList.tsx` | Save/apply named export presets (stored in app settings `exportPresets`) |

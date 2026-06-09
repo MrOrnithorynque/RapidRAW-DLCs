@@ -88,4 +88,4 @@ Example: a new `"mytype"` mask.
 
 - TS: `npm run typecheck` and `npm run lint`; if you added UI strings run `npm run i18n:extract` then `npm run i18n:check`.
 - Rust: run `cargo fmt` and `cargo clippy` inside `src-tauri/`.
-- Write a changelog entry per the `changelog` skill (one file in `docs/changelog/`).
+- Write a changelog entry per the `changelog` skill (append a `<li>` to the top `<release>` block in `data/io.github.CyberTimon.RapidRAW.metainfo.xml` — there is no `docs/changelog/`).

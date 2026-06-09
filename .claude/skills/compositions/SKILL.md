@@ -30,7 +30,7 @@ Two architectural patterns coexist — know which one you are touching:
 
 - **Self-contained / client-side (negative, collage):** `NegativeConversionModal` calls raw-string `invoke('preview_negative_conversion', ...)`/`invoke('convert_negatives', ...)` and listens to `negative-batch-progress` itself — it does NOT use the `Invokes` enum or `useTauriListeners`, and keeps progress in local component state. `CollageModal` composites entirely in an offscreen HTML `<canvas>` (`toDataURL('image/png')`); the backend `save_collage` only base64-decodes the PNG and writes it — there is no backend collage compositing.
 
-Panorama/HDR/negative all go through `image-loader` (`load_base_image_from_bytes`) and `image-pipeline` helpers (`downscale_f32_image`, `apply_srgb_to_linear`/`apply_linear_to_srgb`); none of these features touch the wgpu/`gpu-shaders` path — the math is CPU + rayon. Paths arriving from the frontend are virtual and must be unwrapped with `parse_virtual_path`.
+All three load via `image-loader` (`load_base_image_from_bytes`). The helper usage differs: HDR converts with `apply_srgb_to_linear`/`apply_linear_to_srgb` (those sRGB↔linear helpers are **HDR-only**), while panorama and negative use `downscale_f32_image` for the preview/bounds downscale. None of these features touch the wgpu/`gpu-shaders` path — the math is CPU + rayon. Paths arriving from the frontend are virtual and must be unwrapped with `parse_virtual_path`.
 
 ## Key types & symbols
 - `stitch_panorama` / `save_panorama` — tauri commands (panorama_stitching.rs) — async stitch + save; `Invokes.StitchPanorama` / `Invokes.SavePanorama`.

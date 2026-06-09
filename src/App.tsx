@@ -335,6 +335,7 @@ function App() {
     handleBatchDenoise,
     handleSaveDenoisedImage,
     handleSaveCollage,
+    handleSaveImageTrack,
   } = useProductivityActions(handleLibraryRefresh);
 
   const {
@@ -731,6 +732,7 @@ function App() {
           handleRate={handleRate}
           executeDelete={executeDelete}
           handleSaveCollage={handleSaveCollage}
+          handleSaveImageTrack={handleSaveImageTrack}
           handleCreateAlbumItem={handleCreateAlbumItem}
           handleRenameAlbumItem={handleRenameAlbumItem}
         />

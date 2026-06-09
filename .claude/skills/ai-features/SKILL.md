@@ -22,10 +22,10 @@ All local + remote AI under the `ort`/ONNX umbrella plus CLIP tagging and percep
 | `src/hooks/useTauriListeners.ts` | Subscribes to all AI events (`ai-model-download-*`, `indexing-*`, `culling-*`). |
 
 ## How it works
-- Models are downloaded lazily from the `CyberTimon/RapidRAW-Models` HuggingFace repo on first use, SHA256-verified, then held as `Arc<Mutex<Session>>` in `AppState.ai_state` (a `Mutex<Option<AiState>>`). Lazy init is serialized by `AppState.ai_init_lock` (a `TokioMutex`) with double-checked locking. Sessions are created once and never recreated; the per-model `std::sync::Mutex` is locked only during `Session::run()`.
+- Models are downloaded lazily from the `CyberTimon/RapidRAW-Models` HuggingFace repo on first use, SHA256-verified, then held in `AppState.ai_state` (a `Mutex<Option<AiState>>`): the five core sessions live as `Mutex<Session>` fields inside one `Arc<AiModels>`, while the standalone `denoise_model`/`clip_models`/`lama_model` are `Arc<Mutex<Session>>`. Lazy init is serialized by `AppState.ai_init_lock` (a `TokioMutex`) with double-checked locking. Sessions are created once and never recreated; the per-model `std::sync::Mutex` is locked only during `Session::run()`.
 - `AiModels` bundles the five "core" sessions (sam_encoder, sam_decoder, u2netp, sky_seg, depth_anything) loaded together by `get_or_init_ai_models`. `denoise_model`, `clip_models`, and `lama_model` each have their own `get_or_init_*` and live as separate `AiState` fields.
 - Mask commands receive `adjustments` JSON (camelCase, the `adjustments-ui` contract), un-rotate/un-flip the click coords to image space, run inference, and return a **base64 PNG** mask. SAM embeddings (`ImageEmbeddings`) and depth maps (`CachedDepthMap`) are cached in `AiState` keyed by a path+geometry hash, so re-prompting the same image/crop skips the encoder.
-- Generative replace (`invoke_generative_replace_with_mask_def`) is a 3-tier router on `settings.ai_provider`: `local` -> `run_lama_inpainting`; `cloud` -> `ai_connector::process_inpainting` against `https://getrapidraw.com/api`; `ai-connector` -> the same HTTP path against a self-hosted ComfyUI address.
+- Generative replace (`invoke_generative_replace_with_mask_def`) routes in this order: if the command's `use_fast_inpaint` flag is set -> `run_lama_inpainting` (local LaMa) and it short-circuits everything else; otherwise it dispatches on `settings.ai_provider` -> `cloud` calls `ai_connector::process_inpainting` against `https://getrapidraw.com/api`; `ai-connector` calls the same HTTP path against the self-hosted `http://{ai_connector_address}`; any other value returns an error. (`local` is **not** an `ai_provider` value; `ai_provider` defaults to `cpu`.)
 - Tagging: `start_background_indexing` spawns a concurrent Tokio stream over the folder, runs CLIP per thumbnail, merges AI tags with `color:`/`user:` tags, writes `.rrdata` sidecars (the `metadata-exif` contract). Culling: `cull_images` runs `analyze_image` in parallel (Rayon), groups by Hamming distance, filters blurry shots.
 
 ## Key types & symbols
@@ -33,7 +33,7 @@ All local + remote AI under the `ort`/ONNX umbrella plus CLIP tagging and percep
 | --- | --- | --- |
 | `generate_ai_subject_mask` / `precompute_ai_subject_mask` | command | SAM encode+decode; precompute warms the embedding cache for snappy drawing. |
 | `generate_ai_foreground_mask` / `generate_ai_sky_mask` / `generate_ai_depth_mask` | command | U2Net / sky-seg / Depth Anything masks. Depth returns range params for thresholding. |
-| `invoke_generative_replace_with_mask_def` | command | 3-tier inpaint router (local LaMa / cloud / ai-connector). |
+| `invoke_generative_replace_with_mask_def` | command | Inpaint router: `use_fast_inpaint` flag -> local LaMa; else dispatch on `ai_provider` (cloud / ai-connector). |
 | `check_ai_connector_status` / `test_ai_connector_connection` | command | Poll/test the ai-connector; status emits `ai-connector-status-update`. |
 | `start_background_indexing` / `add_tag_for_paths` / `remove_tag_for_paths` / `clear_ai_tags` / `clear_all_tags` | command | Auto-tagging + batch tag management. |
 | `cull_images` | command | Duplicate/blur culling, returns `CullingSuggestions`. |

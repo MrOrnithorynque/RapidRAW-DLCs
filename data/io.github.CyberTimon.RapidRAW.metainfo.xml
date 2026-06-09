@@ -38,6 +38,31 @@
   <url type="homepage">https://github.com/CyberTimon/RapidRAW</url>
 
   <releases>
+    <release version="v1.5.9" date="2026-06-09">
+        <url type="details">https://github.com/CyberTimon/RapidRAW/releases/tag/v1.5.9</url>
+        <description translate="no">
+            <p>New Features</p>
+            <ul>
+                <li>Micrographics Overlays: A new Overlays panel lets you place decorative vector micrographics (symbols, geometry, and full design layouts) directly onto a photo. Drag to move, use the handles to scale and rotate, recolor to any color, and adjust opacity — all live and non-destructive.</li>
+                <li>Auto Arrange: Instantly scatter a set of design graphics across the frame with chosen patterns (corners, edges, scatter, grid, or bento), an adjustable count, base size, and size variation — then fine-tune any of them by hand.</li>
+                <li>Overlays are stored per image alongside your other edits and are baked crisply into the final export at full resolution, with the original colors preserved unless you choose to recolor.</li>
+            </ul>
+        </description>
+    </release>
+    <release version="v1.5.8" date="2026-06-09">
+        <url type="details">https://github.com/CyberTimon/RapidRAW/releases/tag/v1.5.8</url>
+        <description translate="no">
+            <p>New Features</p>
+            <ul>
+                <li>Creative Style Effects: I added a whole new family of GPU-accelerated creative looks to the Effects panel, all live and non-destructive like the rest of your edits.</li>
+                <li>Halftone &amp; Retro: A halftone screen-print generator with dot, line, or cross cells and adjustable size and angle, CRT-style scanlines with line count and noise, plus Posterize with ordered dithering for a clean retro reduction.</li>
+                <li>Stylize: New Monochrome, Hue Rotate, Edge Detect, Thermal, and X-Ray looks for quick artistic transformations of any image.</li>
+                <li>Glitch &amp; Distortion: A glitch effect with RGB split, block displacement, and analog noise, alongside Glass refraction, Pixelate, and a Wave warp for distortion-driven styles.</li>
+                <li>Image Track: A new tool that detects regions of interest in a photo and overlays stylized tracking markers — bounding boxes, corner frames, crosshairs, scopes, or grids — with optional numbered labels and center-hub connection lines, then exports the annotated image. Includes a Manual Mode for drawing your own regions, uniform region sizing, connection rate and dash controls, label positioning, and randomized colors.</li>
+                <li>Each creative effect group can now be toggled on and off with a switch, so you can dial in a look and temporarily hide it without losing your settings.</li>
+            </ul>
+        </description>
+    </release>
     <release version="v1.5.7" date="2026-06-07">
         <url type="details">https://github.com/CyberTimon/RapidRAW/releases/tag/v1.5.7</url>
         <description translate="no">
