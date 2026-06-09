@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install*)",
+      "Bash(npm run dev)",
+      "Bash(npm start)",
+      "Bash(npm run build)",
+      "Bash(npm run tauri*)",
+      "Bash(npm run typecheck)",
+      "Bash(npm run lint*)",
+      "Bash(npm run format*)",
+      "Bash(npm run i18n:*)",
+      "Bash(npx eslint*)",
+      "Bash(npx prettier*)",
+      "Bash(npx tsc*)",
+      "Bash(cargo fmt*)",
+      "Bash(cargo clippy*)",
+      "Bash(cargo check*)",
+      "Bash(cargo build*)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "FILE=$(jq -r '.tool_input.file_path // empty'); if [[ \"$FILE\" == *.ts || \"$FILE\" == *.tsx ]] && [[ \"$FILE\" == \"${CLAUDE_PROJECT_DIR}/src/\"* ]]; then cd \"${CLAUDE_PROJECT_DIR}\" && npx eslint --fix \"$FILE\" 2>&1 || true; fi"
+          }
+        ]
+      }
+    ]
+  }
+}
